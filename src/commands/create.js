@@ -2,14 +2,14 @@ import fs from 'fs-extra'
 import chalk from 'chalk'
 import path from 'path'
 import git from 'git-promise'
-import { execSync } from 'child_process'
+import rimraf from 'rimraf'
+import { spawnSync, execSync } from 'child_process'
 import inquirer from 'inquirer'
 import autoCompletePrompt from 'inquirer-autocomplete-prompt'
 import matchSorter from 'match-sorter'
 import downloadGitRepo from 'download-git-repo'
 import { promisify } from 'util'
 import { ChalkColor } from '../utils'
-
 
 inquirer.registerPrompt('autocomplete', autoCompletePrompt)
 
@@ -128,12 +128,14 @@ export default async program => {
   console.log('')
   console.timeEnd(chalk.green(`=> [\u2713] Project "${answers.name}" created`))
 
+  checkAndAskFollowUps(dest)
+
   console.log(`
 ${chalk.green('=> To get started:')}
 
-    cd ${answers.name}
+  cd ${answers.name}
 
-    ${isYarn
+  ${isYarn
     ? chalk.hex(ChalkColor.yarn)('yarn')
     : chalk.hex(ChalkColor.npm)('npm run')
 } start ${chalk.green('- Start the development server')}
@@ -161,7 +163,7 @@ async function fetchRemoteTemplate (template, dest) {
   console.log('')
   if (template.startsWith('https://') || template.startsWith('git@')) {
     try {
-      console.log(chalk.green(`Downloading template: ${template}`))
+      console.log(`=> Downloading template: ${template}`)
       await git(`clone --recursive ${template} ${dest}`)
     } catch (e) {
       console.error(chalk.red(`Download of ${template} failed`))
@@ -171,11 +173,29 @@ async function fetchRemoteTemplate (template, dest) {
     // use download-git-repo to fetch remote repository
     const getGitHubRepo = promisify(downloadGitRepo)
     try {
-      console.log(chalk.green(`Downloading template: ${template}`))
+      console.log(`=> Downloading template: ${template}`)
       await getGitHubRepo(template, dest)
     } catch (e) {
       console.error(chalk.red(`Download of ${template} failed`))
       console.error(e)
     }
+  }
+}
+
+function checkAndAskFollowUps (dest) {
+  const questionsPath = path.join(dest, 'inquirer.config.js')
+  if (fs.existsSync(questionsPath)) {
+    console.log(chalk.green('=> [\u2713] Follow up questions detected in your template'))
+
+    // run follow up questions in project template's inquirer.config.js
+    spawnSync('node', [questionsPath], {
+      cwd: __dirname,
+      stdio: 'inherit',
+      shell: true,
+    })
+
+    // delete the inquirer.config.js file from new project
+    rimraf(questionsPath, () => {})
+    console.log('')
   }
 }
