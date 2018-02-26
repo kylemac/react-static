@@ -128,7 +128,7 @@ export default async program => {
   console.log('')
   console.timeEnd(chalk.green(`=> [\u2713] Project "${answers.name}" created`))
 
-  checkAndAskFollowUps(dest)
+
 
   console.log(`
 ${chalk.green('=> To get started:')}
@@ -148,6 +148,8 @@ ${chalk.green('=> To get started:')}
     : chalk.hex(ChalkColor.npm)('npm run')
 } serve ${chalk.green('- Test a production build locally')}
 `)
+
+  checkAndAskFollowUps(dest)
 }
 
 function shouldUseYarn () {
@@ -182,20 +184,16 @@ async function fetchRemoteTemplate (template, dest) {
   }
 }
 
-function checkAndAskFollowUps (dest) {
-  const questionsPath = path.join(dest, 'inquirer.config.js')
-  if (fs.existsSync(questionsPath)) {
-    console.log(chalk.green('=> [\u2713] Follow up questions detected in your template'))
+async function checkAndAskFollowUps (dest) {
+  const postCreatePath = path.join(dest, 'static.postCreate.js')
+  if (fs.existsSync(postCreatePath)) {
+    console.log(chalk.green('=> [\u2713] static.postCreate.js detected in your template'))
 
-    // run follow up questions in project template's inquirer.config.js
-    spawnSync('node', [questionsPath], {
-      cwd: __dirname,
-      stdio: 'inherit',
-      shell: true,
-    })
+    await require(postCreatePath).default()
 
-    // delete the inquirer.config.js file from new project
-    rimraf(questionsPath, () => {})
+    // delete the static.postCreate.js file from new project
     console.log('')
+    rimraf(postCreatePath, () => {})
+    console.log('=> [\u2713] postCreate template hook complete')
   }
 }
